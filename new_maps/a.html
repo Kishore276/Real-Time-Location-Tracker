@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Route Finder for Cab Management System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+
+        .container {
+            margin: 20px;
+        }
+
+        input,
+        button {
+            margin: 5px;
+        }
+
+        #instructions {
+            margin-top: 10px;
+        }
+
+        h2 {
+            margin-top: 20px;
+        }
+
+        label {
+            display: inline-block;
+            margin-right: 20px;
+        }
+
+        /* Transport icons */
+        .transport-icons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .transport-icons div {
+            text-align: center;
+        }
+
+        .transport-icons img {
+            width: 50px;
+            height: 50px;
+        }
+
+        .time-info {
+            font-size: 16px;
+            margin-top: 5px;
+        }
+
+        #btn {
+            background-color: red;
+            border-width: 0px;
+            height: 50px;
+            width: 150px;
+            border-radius: 15px;
+        }
+
+        .btnlive {
+            font-size: 15px;
+            text-decoration: none;
+            color: white;
+        }
+        .label-form{
+            display:flex;
+            flex-direction: row;
+            justify-content:start;
+
+        }
+        .button-live{
+            margin-left:20px;
+        }
+        .get-btn{
+            background-color:green;
+            width:120px;
+            height:40px;
+            font-size:13px;
+            color:white;
+            border-width: 0px;
+            border-radius:8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Short Route Finder (SRF) for Cab Management System</h1>
+
+        <form id="routeForm">
+            <div class = "label-form">
+                <div>
+                    <label for="startPlace">Start Point:</label>
+                    <input type="text" id="startPlace" placeholder="e.g. Chirala" required>
+                </div>
+                <div>
+                    <label for="endPlace">End Point:</label>
+                    <input type="text" id="endPlace" placeholder="e.g. Vijayawada" required>
+                </div>
+                <div class = "button-live">
+                    <button id="btn"><a href="http://localhost:3000/" class="btnlive">Live Location Tracker</a></button>
+                </div>
+            </div>
+            <br>
+            <h2>Select Mode of Transport</h2>
+            <label>
+                <input type="radio" name="mode" value="car" checked>
+                <span>Car</span>
+            </label>
+            <label>
+                <input type="radio" name="mode" value="motorcycle">
+                <span>Motorcycle</span>
+            </label>
+            <label>
+                <input type="radio" name="mode" value="bus">
+                <span>Bus</span>
+            </label>
+            <label>
+                <input type="radio" name="mode" value="walking">
+                <span>Walking</span>
+            </label>
+            <br>
+            <button type="submit" class = "get-btn">Get Routes</button>
+        </form>
+
+
+
+        <div class="transport-icons">
+            <div>
+                <img src="car-icon.png" alt="Car">
+                <div id="carTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="motorcycle-icon.png" alt="Motorcycle">
+                <div id="motorcycleTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="bus-icon.png" alt="Bus">
+                <div id="busTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="walking-icon.png" alt="Walking">
+                <div id="walkingTime" class="time-info">-- min</div>
+            </div>
+        </div>
+
+        <div id="instructions"></div>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Different graphs for each mode of transport
+        const graphCar = {
+            'Chirala': { 'Bapatla': 17, 'Vijayawada': 100 },
+            'Bapatla': { 'Chirala': 17, 'Vijayawada': 83 },
+            'Vijayawada': { 'Chirala': 100, 'Bapatla': 83 },
+        };
+
+        const graphMotorcycle = {
+            'Chirala': { 'Bapatla': 15, 'Vijayawada': 95 },
+            'Bapatla': { 'Chirala': 15, 'Vijayawada': 80 },
+            'Vijayawada': { 'Chirala': 95, 'Bapatla': 80 },
+        };
+
+        const graphBus = {
+            'Chirala': { 'Bapatla': 20, 'Vijayawada': 110 },
+            'Bapatla': { 'Chirala': 20, 'Vijayawada': 90 },
+            'Vijayawada': { 'Chirala': 110, 'Bapatla': 90 },
+        };
+
+        const graphWalking = {
+            'Chirala': { 'Bapatla': 180, 'Vijayawada': 500 },
+            'Bapatla': { 'Chirala': 180, 'Vijayawada': 480 },
+            'Vijayawada': { 'Chirala': 500, 'Bapatla': 480 },
+        };
+
+        // Speeds in km/h for different transport modes
+        const speeds = {
+            car: 60, // 60 km/h
+            motorcycle: 50, // 50 km/h
+            bus: 40, // 40 km/h
+            walking: 5 // 5 km/h
+        };
+
+        // Dijkstra's Algorithm
+        function dijkstra(graph, start, end) {
+            const distances = {};
+            const visited = {};
+            const previous = {};
+            const queue = [];
+
+            // Set initial distances to infinity, except for start point
+            for (const node in graph) {
+                distances[node] = Infinity;
+                previous[node] = null;
+            }
+            distances[start] = 0;
+
+            queue.push([start, 0]);
+
+            while (queue.length > 0) {
+                queue.sort((a, b) => a[1] - b[1]); // Sort by distance
+                const [current, dist] = queue.shift();
+
+                if (visited[current]) continue;
+
+                visited[current] = true;
+                if (current === end) break;
+
+                for (const neighbor in graph[current]) {
+                    const newDist = dist + graph[current][neighbor];
+                    if (newDist < distances[neighbor]) {
+                        distances[neighbor] = newDist;
+                        previous[neighbor] = current;
+                        queue.push([neighbor, newDist]);
+                    }
+                }
+            }
+
+            const path = [];
+            let currNode = end;
+            while (currNode) {
+                path.unshift(currNode);
+                currNode = previous[currNode];
+            }
+
+            return { path, distance: distances[end] };
+        }
+
+        // Function to calculate time based on distance and speed
+        function calculateTime(distance, speed) {
+            return (distance / speed) * 60; // Returns time in minutes
+        }
+
+        // Initialize the map
+        var map = L.map('map').setView([16.056, 80.782], 9); // Center on Andhra Pradesh region
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var routingControl;
+
+        // Handle form submission
+        document.getElementById('routeForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            var startPlace = document.getElementById('startPlace').value;
+            var endPlace = document.getElementById('endPlace').value;
+
+            // Get selected mode of transport
+            var selectedMode = document.querySelector('input[name="mode"]:checked').value;
+
+            // Select the appropriate graph based on mode of transport
+            let graph;
+            switch (selectedMode) {
+                case 'car':
+                    graph = graphCar;
+                    break;
+                case 'motorcycle':
+                    graph = graphMotorcycle;
+                    break;
+                case 'bus':
+                    graph = graphBus;
+                    break;
+                case 'walking':
+                    graph = graphWalking;
+                    break;
+                default:
+                    alert('Invalid transport mode selected.');
+                    return;
+            }
+
+            if (!graph[startPlace] || !graph[endPlace]) {
+                alert('Invalid start or end place.');
+                return;
+            }
+
+            // Clear previous route
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+
+            // Get shortest route using Dijkstra's algorithm
+            var result = dijkstra(graph, startPlace, endPlace);
+            var shortestPath = result.path;
+            var totalDistance = result.distance;
+
+            // Display route info
+            document.getElementById('instructions').innerHTML = `
+                <h3>Shortest Route (${selectedMode})</h3>
+                <p>Path: ${shortestPath.join(' -> ')}</p>
+                <p>Total distance: ${(totalDistance).toFixed(2)} km</p>
+            `;
+
+            // Calculate time for each transport mode and update the time info under icons
+            document.getElementById('carTime').textContent = calculateTime(totalDistance, speeds.car).toFixed(2) + ' min';
+            document.getElementById('motorcycleTime').textContent = calculateTime(totalDistance, speeds.motorcycle).toFixed(2) + ' min';
+            document.getElementById('busTime').textContent = calculateTime(totalDistance, speeds.bus).toFixed(2) + ' min';
+            document.getElementById('walkingTime').textContent = calculateTime(totalDistance, speeds.walking).toFixed(2) + ' min';
+
+            // Visualize route using Leaflet Routing Machine
+            var waypoints = shortestPath.map(place => {
+                switch (place) {
+                    case 'Chirala': return L.latLng(15.823, 80.354);
+                    case 'Bapatla': return L.latLng(15.900, 80.467);
+                    case 'Vijayawada': return L.latLng(16.506, 80.648);
+                    default: return L.latLng(0, 0); // Default, in case of error
+                }
+            });
+
+            routingControl = L.Routing.control({
+                waypoints: waypoints,
+                routeWhileDragging: false
+            }).addTo(map);
+        });
+    </script>
+</body>
+
+</html>
