@@ -1,0 +1,8 @@
+# This is a Node.js project
+# Dependencies are managed through package.json and npm/yarn
+# If you need Python dependencies for any additional scripts, add them here
+
+# Example Python dependencies (uncomment if needed):
+# requests>=2.25.1
+# flask>=2.0.0
+# pandas>=1.3.0
