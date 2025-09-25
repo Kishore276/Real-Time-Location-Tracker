@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map with Live Location and Directions</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+  <!-- Leaflet Routing Machine CSS and JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+  <style>
+    #map {
+      height: 85vh;
+    }
+    .controls {
+      padding: 10px;
+      background: white;
+    }
+    .live-location-dot {
+      width: 20px;
+      height: 20px;
+      background-color: blue;
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <label for="destination">Enter Destination: </label>
+  <input type="text" id="destination" placeholder="Enter a city, street, or landmark">
+  <button onclick="findRoute()">Find Route</button>
+</div>
+<div id="map"></div>
+
+<script>
+  // Initialize the map and set its view to a default location
+  const map = L.map('map').setView([9.57, 77.74], 11);
+
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  let liveMarker;
+  let routeControl;
+  let userLat, userLng;
+
+  // Check if browser supports Geolocation API
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition((position) => {
+      userLat = position.coords.latitude;
+      userLng = position.coords.longitude;
+
+      // Create or update the live location marker
+      if (!liveMarker) {
+        liveMarker = L.marker([userLat, userLng], {
+          icon: L.divIcon({
+            className: 'live-location-dot'
+          })
+        }).addTo(map).bindPopup('Your Live Location');
+      } else {
+        liveMarker.setLatLng([userLat, userLng]);
+      }
+
+      map.setView([userLat, userLng], 13);
+    }, (error) => {
+      console.error("Geolocation error:", error);
+      alert("Geolocation is not supported or permission denied.");
+    });
+  } else {
+    alert("Geolocation is not supported by this browser.");
+  }
+
+  // Function to find a route to the entered destination
+  function findRoute() {
+    const destination = document.getElementById('destination').value;
+
+    if (!destination) {
+      alert("Please enter a destination.");
+      return;
+    }
+
+    // Geocode the destination
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.length === 0) {
+          alert("Destination not found.");
+          return;
+        }
+
+        const destLat = parseFloat(data[0].lat);
+        const destLng = parseFloat(data[0].lon);
+
+        // Remove the previous route if exists
+        if (routeControl) {
+          map.removeControl(routeControl);
+        }
+
+        // Add the new route
+        routeControl = L.Routing.control({
+          waypoints: [
+            L.latLng(userLat, userLng),
+            L.latLng(destLat, destLng)
+          ],
+          routeWhileDragging: false,
+          addWaypoints: false,
+          createMarker: () => null,
+          lineOptions: {
+            styles: [{ color: 'blue', opacity: 0.7, weight: 5 }]
+          }
+        }).addTo(map);
+
+        // Show the calculated distance in an alert or popup
+        const distance = liveMarker.getLatLng().distanceTo([destLat, destLng]);
+        alert(`Distance to ${destination}: ${Math.round(distance / 1000)} km`);
+      })
+      .catch(error => {
+        console.error("Geocoding error:", error);
+        alert("An error occurred while finding the destination.");
+      });
+  }
+</script>
+
+</body>
+</html>
