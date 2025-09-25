@@ -1,0 +1,628 @@
+<!--Final_code-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Route Finder | Cab Management System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <style>
+        * {
+            font-family: 'Roboto', Arial, sans-serif;
+            box-sizing: border-box;
+        }
+        header {
+            background-color: #13ab39;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            border-radius:20px;
+            margin-bottom: 25px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            width: 240px;
+            font-size: 14px;
+        }
+        #btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button.get-btn {
+            background-color: #15b53d;
+            color: white;
+        }
+
+        button.get-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .mode-selection {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .mode-selection label {
+            margin-right: 15px;
+            font-size: 16px;
+        }
+
+        .mode-selection input[type="radio"] {
+            margin-right: 5px;
+        }
+
+        .transport-icons {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .transport-icons div {
+            text-align: center;
+        }
+
+        .transport-icons img {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .transport-icons img:hover {
+            transform: scale(1.2);
+        }
+
+        .time-info {
+            font-size: 16px;
+            color: #040f1a;
+            /* color: #007bff; */
+            font-weight: bold;
+        }
+
+        #map {
+            height: 600px;
+            margin: 20px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
+
+        #instructions {
+            background-color: #faf9f8;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        #instructions h3 {
+            font-size: 20px;
+            color: #343a40;
+        }
+
+        #instructions p {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            input[type="text"] {
+                width: 100%;
+            }
+
+            .button-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            Short Route Finder Dashboard
+        </header>
+
+        <form id="routeForm">
+            <div>
+                <label for="startPlace">Start Point:</label>
+                <input type="text" id="startPlace" placeholder="Enter start location" required>
+            </div>
+            <div>
+                <label for="endPlace">End Point:</label>
+                <input type="text" id="endPlace" placeholder="Enter destination" required>
+            </div>
+            <div class="button-container">
+                <button type="submit" class="get-btn">Find Route</button>
+                <button id="btn"><a href="http://localhost:3000/" style="text-decoration: none; color: rgb(253, 245, 245);">Live Tracker</a></button>
+            </div>
+        </form>
+
+        <div class="mode-selection">
+            <h2>Select Mode of Transport</h2>
+            <label><input type="radio" name="mode" value="car" checked> Car</label>
+            <label><input type="radio" name="mode" value="motorcycle"> Motorcycle</label>
+            <label><input type="radio" name="mode" value="bus"> Bus</label>
+            <label><input type="radio" name="mode" value="walking"> Walking</label>
+        </div>
+
+        <div class="transport-icons">
+            <div>
+                <img src="car-icon.png" alt="Car">
+                <div id="carTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="motorcycle-icon.png" alt="Motorcycle">
+                <div id="motorcycleTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="bus-icon.png" alt="Bus">
+                <div id="busTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="walking-icon.png" alt="Walking">
+                <div id="walkingTime" class="time-info">-- min</div>
+            </div>
+        </div>
+
+        <div id="instructions"></div>
+        <div id="map"></div>
+        <h3 style="text-align: center;">&copy; 2024 Short Route Finder. All rights reserved.</h3>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Your JavaScript logic remains unchanged
+        // Dijkstra's algorithm, routing logic, and map rendering are as you provided
+        const graphCar = {
+    'Chirala': { 'Bapatla': 17, 'Vijayawada': 100 },
+    'Bapatla': { 'Chirala': 17, 'Vijayawada': 83 },
+    'Vijayawada': { 'Chirala': 100, 'Bapatla': 83 },
+};
+
+const graphMotorcycle = {
+    'Chirala': { 'Bapatla': 15, 'Vijayawada': 95 },
+    'Bapatla': { 'Chirala': 15, 'Vijayawada': 80 },
+    'Vijayawada': { 'Chirala': 95, 'Bapatla': 80 },
+};
+
+const graphBus = {
+    'Chirala': { 'Bapatla': 20, 'Vijayawada': 110 },
+    'Bapatla': { 'Chirala': 20, 'Vijayawada': 90 },
+    'Vijayawada': { 'Chirala': 110, 'Bapatla': 90 },
+};
+
+const graphWalking = {
+    'Chirala': { 'Bapatla': 180, 'Vijayawada': 500 },
+    'Bapatla': { 'Chirala': 180, 'Vijayawada': 480 },
+    'Vijayawada': { 'Chirala': 500, 'Bapatla': 480 },
+};
+
+const speeds = {
+    car: 60,
+    motorcycle: 50,
+    bus: 40,
+    walking: 5,
+};
+
+// Dijkstra's Algorithm for shortest path calculation
+function dijkstra(graph, start, end) {
+    const distances = {};
+    const visited = {};
+    const previous = {};
+    const queue = [];
+
+    // Initialize distances and previous nodes
+    for (const node in graph) {
+        distances[node] = Infinity;
+        previous[node] = null;
+    }
+    distances[start] = 0;
+
+    // Add the starting node to the queue
+    queue.push([start, 0]);
+
+    while (queue.length > 0) {
+        queue.sort((a, b) => a[1] - b[1]); // Sort by distance
+        const [current, dist] = queue.shift();
+
+        if (visited[current]) continue;
+
+        visited[current] = true;
+        if (current === end) break;
+
+        // Update distances for neighbors
+        for (const neighbor in graph[current]) {
+            const newDist = dist + graph[current][neighbor];
+            if (newDist < distances[neighbor]) {
+                distances[neighbor] = newDist;
+                previous[neighbor] = current;
+                queue.push([neighbor, newDist]);
+            }
+        }
+    }
+
+    // Construct the shortest path
+    const path = [];
+    let currNode = end;
+    while (currNode) {
+        path.unshift(currNode);
+        currNode = previous[currNode];
+    }
+
+    return { path, distance: distances[end] };
+}
+
+// Calculate time in minutes based on distance and speed
+function calculateTime(distance, speed) {
+    return (distance / speed) * 60; // Convert hours to minutes
+}
+
+// Initialize Leaflet map
+var map = L.map('map').setView([16.056, 80.782], 9);
+
+// Add OpenStreetMap tiles
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+var routeControl; // For managing route control
+
+// Handle form submission
+document.getElementById('routeForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    // Get user input
+    const start = document.getElementById('startPlace').value;
+    const end = document.getElementById('endPlace').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+
+    // Select graph and speed based on mode
+    const graph = { car: graphCar, motorcycle: graphMotorcycle, bus: graphBus, walking: graphWalking }[mode];
+    const speed = speeds[mode];
+
+    // Find shortest route
+    const { path, distance } = dijkstra(graph, start, end);
+    const time = calculateTime(distance, speed);
+
+    // Update time for the selected mode
+    document.getElementById(mode + 'Time').innerText = time.toFixed(2) + ' min';
+
+    // Remove previous route if exists
+    if (routeControl) map.removeControl(routeControl);
+
+    // Add route to map
+    routeControl = L.Routing.control({
+        waypoints: path.map(location => {
+            const locations = {
+                'Chirala': [15.823, 80.35],
+                'Bapatla': [15.888, 80.47],
+                'Vijayawada': [16.506, 80.648]
+            };
+            return L.latLng(...locations[location]);
+        }),
+        createMarker: function (i, waypoint) {
+            const iconUrl = i === 0 
+                ? 'https://cdn-icons-png.flaticon.com/512/1144/1144709.png'  // Start icon
+                : 'https://cdn-icons-png.flaticon.com/512/10522/10522034.png';  // End icon
+            return L.marker(waypoint.latLng, {
+                icon: L.icon({
+                    iconUrl: iconUrl,
+                    iconSize: [50, 50],
+                    iconAnchor: [25, 50]
+                })
+            });
+        }
+    }).addTo(map);
+
+    // Display route instructions
+    const instructions = path.join(' ➔ ');
+    document.getElementById('instructions').innerHTML = `<h3>Route Instructions:</h3> <p>${instructions}</p>`;
+});
+
+    </script>
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Route Finder Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 20px;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .form-section, .map-section, .info-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-section {
+            flex: 1 1 300px;
+            max-width: 400px;
+        }
+
+        .map-section {
+            flex: 2 1 600px;
+            height: 600px;
+        }
+
+        .info-section {
+            flex: 1 1 300px;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .form-row {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .mode-selection {
+            margin-top: 20px;
+        }
+
+        .mode-selection label {
+            display: inline-block;
+            margin-right: 15px;
+        }
+
+        button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .transport-icons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .transport-icons img {
+            width: 60px;
+            height: 60px;
+        }
+
+        .time-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        #instructions {
+            margin-top: 20px;
+            font-size: 14px;
+            text-align: left;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #777;
+            background-color: #f0f2f5;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        Short Route Finder Dashboard
+    </header>
+
+    <div class="container">
+        <!-- Form Section -->
+        <div class="form-section">
+            <h2>Find the Shortest Route</h2>
+            <form id="routeForm">
+                <div class="form-row">
+                    <label for="startPlace">Start Point:</label>
+                    <input type="text" id="startPlace" placeholder="e.g. Chirala" required>
+                </div>
+                <div class="form-row">
+                    <label for="endPlace">End Point:</label>
+                    <input type="text" id="endPlace" placeholder="e.g. Vijayawada" required>
+                </div>
+                <div class="mode-selection">
+                    <h3>Mode of Transport</h3>
+                    <label><input type="radio" name="mode" value="car" checked> Car</label>
+                    <label><input type="radio" name="mode" value="motorcycle"> Motorcycle</label>
+                    <label><input type="radio" name="mode" value="bus"> Bus</label>
+                    <label><input type="radio" name="mode" value="walking"> Walking</label>
+                </div>
+                <button type="submit">Get Route</button>
+            </form>
+        </div>
+
+        <!-- Map Section -->
+        <div class="map-section">
+            <div id="map"></div>
+        </div>
+
+        <!-- Information Section -->
+        <div class="info-section">
+            <h2>Route Information</h2>
+            <div class="transport-icons">
+                <div>
+                    <img src="car-icon.png" alt="Car">
+                    <div id="carTime" class="time-info">-- min</div>
+                </div>
+                <div>
+                    <img src="motorcycle-icon.png" alt="Motorcycle">
+                    <div id="motorcycleTime" class="time-info">-- min</div>
+                </div>
+                <div>
+                    <img src="bus-icon.png" alt="Bus">
+                    <div id="busTime" class="time-info">-- min</div>
+                </div>
+                <div>
+                    <img src="walking-icon.png" alt="Walking">
+                    <div id="walkingTime" class="time-info">-- min</div>
+                </div>
+            </div>
+            <div id="instructions">
+                <strong>Instructions:</strong>
+                <p>Enter the starting and ending points to see the shortest route and travel times.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2024 Short Route Finder. All rights reserved.
+    </footer>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Map initialization logic (reuse the script provided earlier)
+    </script>
+</body>
+
+</html>
