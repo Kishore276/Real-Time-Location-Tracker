@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Route Finder Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 20px;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .form-section, .map-section, .info-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-section {
+            flex: 1 1 300px;
+            max-width: 400px;
+        }
+
+        .map-section {
+            flex: 2 1 600px;
+            height: 600px;
+        }
+
+        .info-section {
+            flex: 1 1 300px;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .form-row {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .mode-selection {
+            margin-top: 20px;
+        }
+
+        .mode-selection label {
+            display: inline-block;
+            margin-right: 15px;
+        }
+
+        button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .transport-icons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .transport-icons img {
+            width: 60px;
+            height: 60px;
+        }
+
+        .time-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        #instructions {
+            margin-top: 20px;
+            font-size: 14px;
+            text-align: left;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #777;
+            background-color: #f0f2f5;
+            margin-top: 20px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        Short Route Finder Dashboard
+    </header>
+
+    <div class="container">
+        <!-- Form Section -->
+        <div class="form-section">
+            <h2>Find the Shortest Route</h2>
+            <form id="routeForm">
+                <div class="form-row">
+                    <label for="startPlace">Start Point:</label>
+                    <input type="text" id="startPlace" placeholder="e.g. Chirala" required>
+                </div>
+                <div class="form-row">
+                    <label for="endPlace">End Point:</label>
+                    <input type="text" id="endPlace" placeholder="e.g. Vijayawada" required>
+                </div>
+                <div class="mode-selection">
+                    <h3>Mode of Transport</h3>
+                    <label><input type="radio" name="mode" value="car" checked> Car</label>
+                    <label><input type="radio" name="mode" value="motorcycle"> Motorcycle</label>
+                    <label><input type="radio" name="mode" value="bus"> Bus</label>
+                    <label><input type="radio" name="mode" value="walking"> Walking</label>
+                </div>
+                <button type="submit">Get Route</button>
+            </form>
+        </div>
+
+        <!-- Map Section -->
+        <div class="map-section">
+            <div id="map"></div>
+        </div>
+
+        <!-- Information Section -->
+        <div class="info-section">
+            <h2>Route Information</h2>
+            <div class="transport-icons">
+                <div>
+                    <img src="car-icon.png" alt="Car">
+                    <div id="carTime" class="time-info">-- min</div>
+                </div>
+                <div>
+                    <img src="motorcycle-icon.png" alt="Motorcycle">
+                    <div id="motorcycleTime" class="time-info">-- min</div>
+                </div>
+                <div>
+                    <img src="bus-icon.png" alt="Bus">
+                    <div id="busTime" class="time-info">-- min</div>
+                </div>
+                <div>
+                    <img src="walking-icon.png" alt="Walking">
+                    <div id="walkingTime" class="time-info">-- min</div>
+                </div>
+            </div>
+            <div id="instructions">
+                <strong>Instructions:</strong>
+                <p>Enter the starting and ending points to see the shortest route and travel times.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2024 Short Route Finder. All rights reserved.
+    </footer>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([16.5074, 80.6412], 10); // Default to a location in Vijayawada, India
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let routingControl;
+
+        // Handle form submission
+        document.getElementById('routeForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const startPlace = document.getElementById('startPlace').value;
+            const endPlace = document.getElementById('endPlace').value;
+
+            // Remove previous routing control if exists
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+
+            routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(16.5074, 80.6412), // Mock start point
+                    L.latLng(17.6868, 83.2185)  // Mock end point
+                ],
+                routeWhileDragging: true
+            }).addTo(map);
+        });
+    </script>
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Route Finder (SRF)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #f5f6fa;
+            color: #333;
+        }
+
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        #map {
+            height: 500px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+
+        .form-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group button {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group button:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0px 0px 5px rgba(76, 175, 80, 0.5);
+        }
+
+        .form-group button {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .form-group button:hover {
+            background-color: #45A049;
+        }
+
+        .transport-icons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .transport-icons img {
+            width: 50px;
+            height: 50px;
+            opacity: 0.8;
+        }
+
+        .transport-icons .time-info {
+            font-size: 14px;
+            color: #555;
+            text-align: center;
+            margin-top: 5px;
+            font-weight: 600;
+        }
+
+        #instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        #instructions h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        Short Route Finder (SRF)
+    </div>
+    <div class="container">
+        <form id="routeForm" class="form-section">
+            <div class="form-group">
+                <label for="startPlace">Start Point</label>
+                <input type="text" id="startPlace" placeholder="Enter start location" required>
+            </div>
+            <div class="form-group">
+                <label for="endPlace">End Point</label>
+                <input type="text" id="endPlace" placeholder="Enter destination" required>
+            </div>
+            <div class="form-group">
+                <label for="mode">Transport Mode</label>
+                <select id="mode">
+                    <option value="car">Car</option>
+                    <option value="motorcycle">Motorcycle</option>
+                    <option value="bus">Bus</option>
+                    <option value="walking">Walking</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button type="submit">Find Route</button>
+            </div>
+        </form>
+
+        <div id="map"></div>
+
+        <div class="transport-icons">
+            <div>
+                <img src="car-icon.png" alt="Car">
+                <div id="carTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="motorcycle-icon.png" alt="Motorcycle">
+                <div id="motorcycleTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="bus-icon.png" alt="Bus">
+                <div id="busTime" class="time-info">-- min</div>
+            </div>
+            <div>
+                <img src="walking-icon.png" alt="Walking">
+                <div id="walkingTime" class="time-info">-- min</div>
+            </div>
+        </div>
+
+        <div id="instructions">
+            <h3>Route Details</h3>
+            <p>Select your start and end points, choose your transport mode, and click "Find Route" to see the optimized path and estimated travel time.</p>
+        </div>
+    </div>
+    <div class="footer">
+        &copy; 2024 Short Route Finder. All Rights Reserved.
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Map initialization
+        const map = L.map('map').setView([16.056, 80.782], 9);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Handle form submission
+        document.getElementById('routeForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            // Additional logic here
+        });
+    </script>
+</body>
+
+</html> -->
