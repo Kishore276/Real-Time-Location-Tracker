@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Mapping with Directions</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 90vh;
+            width: 100%;
+        }
+        #controls {
+            margin: 10px;
+            padding: 10px;
+        }
+        #directions {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <input type="text" id="destination" placeholder="Enter destination name" size="50">
+        <button onclick="findRoute()">Get Route</button>
+    </div>
+    <div id="map"></div>
+    <div id="directions"></div>
+
+    <script>
+        let map, userLocation, destinationMarker, routeLayer;
+
+        function initMap() {
+            // Initialize the map
+            map = L.map('map').setView([20.5937, 78.9629], 5); // Centered on India initially
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Get the user's current location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    userLocation = [position.coords.latitude, position.coords.longitude];
+                    map.setView(userLocation, 13);
+
+                    L.marker(userLocation)
+                        .addTo(map)
+                        .bindPopup("You are here!")
+                        .openPopup();
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        async function findRoute() {
+            const destination = document.getElementById('destination').value;
+            if (!destination) {
+                alert("Please enter a destination.");
+                return;
+            }
+
+            // Use Nominatim to geocode the destination
+            const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`;
+            const response = await fetch(geocodeUrl);
+            const data = await response.json();
+
+            if (!data.length) {
+                alert("Destination not found.");
+                return;
+            }
+
+            // Get the destination coordinates
+            const destLat = parseFloat(data[0].lat);
+            const destLon = parseFloat(data[0].lon);
+            const destCoords = [destLat, destLon];
+
+            // Add destination marker
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
+            }
+            destinationMarker = L.marker(destCoords).addTo(map).bindPopup("Destination: " + destination).openPopup();
+
+            // Fetch route from OpenRouteService
+            const apiKey = 'YOUR_OPENROUTESERVICE_API_KEY'; // Replace with your OpenRouteService API Key
+            const routeUrl = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${userLocation[1]},${userLocation[0]}&end=${destLon},${destLat}`;
+
+            const routeResponse = await fetch(routeUrl);
+            const routeData = await routeResponse.json();
+
+            // Draw route on the map
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+            }
+            const routeCoords = routeData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+            routeLayer = L.polyline(routeCoords, { color: 'blue', weight: 5 }).addTo(map);
+
+            // Display turn-by-turn directions
+            const directionsContainer = document.getElementById('directions');
+            directionsContainer.innerHTML = '<h3>Directions</h3>';
+            routeData.features[0].properties.segments[0].steps.forEach((step, index) => {
+                directionsContainer.innerHTML += `<p><b>Step ${index + 1}:</b> ${step.instruction}</p>`;
+            });
+
+            // Fit the map to the route bounds
+            map.fitBounds(routeLayer.getBounds());
+        }
+
+        // Initialize the map on load
+        window.onload = initMap;
+    </script>
+</body>
+</html>
